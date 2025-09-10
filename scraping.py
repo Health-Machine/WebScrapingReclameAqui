@@ -12,6 +12,18 @@ HEADERS = {
     }
 
 
+def get_company_id(company_shortname):
+    url = f"https://iosite.reclameaqui.com.br/raichu-io-site-v1/company/shortname/{company_shortname}"
+
+    try:
+        response = Request(url, headers=HEADERS)
+        html = urlopen(response).read().decode('utf-8')
+        response_json = json.loads(html)
+        return response_json['id']
+    except Exception as e:
+        raise ValueError(f"Could not fetch company ID for {company_shortname}: {e}")
+
+
 def get_json(company_id, page=0):
     """Fetch the content of a web page."""
     
@@ -23,10 +35,10 @@ def get_json(company_id, page=0):
         response_json = json.loads(html)
         return response_json['complainResult']['complains']
     except Exception as e:
-        raise RuntimeError(f"Error fetching page: {e}")
+        return None
 
 
-def get_all_data(company_id = "ABfFz9T5OFF-h9d4"):
+def get_all_data(company_id):
     data = get_json(company_id)
     n_data = data['count']
     all_data = []
@@ -34,6 +46,8 @@ def get_all_data(company_id = "ABfFz9T5OFF-h9d4"):
 
     for page in range(0, n_data, 10):
         json_data = get_json(company_id, page)
+        if not json_data:
+            break
         all_data.extend(json_data['data'])
         problems.update((item['name'], item['count']) for item in json_data['problems'])
     
@@ -46,7 +60,7 @@ def fetch_html(url):
         html = urlopen(response).read().decode('utf-8')
         return html
     except Exception as e:
-        raise RuntimeError(f"Error fetching HTML: {e}")
+        return None
 
 
 def get_full_description(reclamacao):
@@ -55,6 +69,10 @@ def get_full_description(reclamacao):
     else:
         url = f"https://www.reclameaqui.com.br/{reclamacao['companyShortname']}/{reclamacao['url']}/"
         html = fetch_html(url)
+
+        if not html:
+            return "No description available"
+        
         soup = BeautifulSoup(html, 'html.parser')
 
         description_div = soup.find('p', attrs={'data-testid': 'complaint-description'})
