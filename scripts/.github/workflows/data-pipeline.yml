@@ -1,0 +1,52 @@
+name: Data Pipeline CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'data/*.csv'  # dispara apenas quando CSVs em /data mudarem
+  workflow_dispatch:  # permite rodar manualmente
+
+jobs:
+  data-pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v3
+
+      - name: Configurar credenciais AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # Envia arquivos locais para o bucket RAW
+      - name: Upload dos arquivos CSV para RAW
+        run: |
+          aws s3 cp ./data/ s3://${{ secrets.S3_RAW_BUCKET }}/ \
+          --recursive --exclude "*" --include "*.csv"
+
+      # Instala dependências do Python
+      - name: Instalar dependências Python
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas boto3
+
+      # Executa o script de transformação diretamente entre buckets
+      - name: Executar transformação (RAW → TRUSTED → CLIENT)
+        run: |
+          python scripts/transform_s3.py \
+          ${{ secrets.S3_RAW_BUCKET }} \
+          ${{ secrets.S3_TRUSTED_BUCKET }} \
+          ${{ secrets.S3_CLIENT_BUCKET }}
+
+      # (opcional) Lista os arquivos gerados
+      - name: Listar arquivos nos buckets de saída
+        run: |
+          echo "Arquivos no bucket TRUSTED:"
+          aws s3 ls s3://${{ secrets.S3_TRUSTED_BUCKET }}/ --recursive
+          echo ""
+          echo "Arquivos no bucket CLIENT:"
+          aws s3 ls s3://${{ secrets.S3_CLIENT_BUCKET }}/ --recursive

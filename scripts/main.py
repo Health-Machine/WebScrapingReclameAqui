@@ -26,7 +26,7 @@ def main():
 
     # Salva tudo
     df = pd.DataFrame(dados)
-    df.to_csv("reclamacoes_bruto.csv", index=False, encoding="utf-8-sig")
+    df.to_csv("data/reclamacoes_bruto.csv", index=False, encoding="utf-8-sig")
     print("Arquivo reclamacoes_bruto.csv salvo com sucesso.")
 
 if __name__ == "__main__":
