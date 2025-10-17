@@ -5,9 +5,6 @@ import pandas as pd
 
 # --- Palavras-chave do filtro (copiadas do seu script Lambda) ---
 KEYWORDS = [
-    "pintura", "pintado", "pintada",
-    "verniz", "envernizado", "envernizada",
-    "acabamento", "acabado", "acabada",
     "descascado", "descascada",
     "descascando", "descascante",
     "desbotado", "desbotada",
@@ -35,10 +32,8 @@ KEYWORDS = [
     "ferrugem na pintura", "ferrugem no verniz",
     "descoloração", "descolorido", "descolorida",
     "enrugado", "enrugada",
-    "reparo mal feito", "retoque mal feito",
     "diferença de tonalidade", "tonalidade irregular",
     "diferença de cor", "cor irregular",
-    "acabamento irregular", "acabamento ruim",
     "pintura irregular", "verniz irregular",
     "mancha", "manchas",
     "peeling", "peelings",
