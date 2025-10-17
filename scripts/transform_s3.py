@@ -2,9 +2,45 @@ import sys
 import io
 import boto3
 import pandas as pd
+import re
 
-# --- Palavras-chave do filtro (copiadas do seu script Lambda) ---
-KEYWORDS = [
+# --- Palavras-chave do filtro (mais restrito e contextual) ---
+BASE_TERMS = [
+    "pintura", "tinta", "verniz", "revestimento"
+]
+
+DEFECT_TERMS = [
+    # --- Defeitos físicos / desgaste ---
+    "descasc", "desgast", "desbot", "descolor", "descolad", "descamad", "soltando",
+    "craquel", "rachad", "trincad", "fissur", "microfissur", "microbolh", "bolh",
+    "peeling", "falh", "imperfei", "danific", "defeituos", "incomplet", "mal aplicad",
+    "queimad", "oxid", "ferrug", "poros", "enrugad",
+    
+    # --- Aparência / tonalidade / brilho ---
+    "manch", "irregular", "tonalid", "cor irregular", "diferença de cor", "diferença de tonalidade",
+    "sem brilho", "falta de brilho", "perda de brilho", "opac", "fosc",
+    
+    # --- Textura / superfície ---
+    "camada fina", "camada grossa", "superfície irregular", "porosidade", "textura irregular",
+    
+    # --- Riscos e arranhões ---
+    "arranh", "risc", "arranhadura", "arranhaduras", "arranhões", "riscos",
+    
+    # --- Termos compostos frequentes ---
+    "pintura falha", "pintura falhada", "tinta falhada", "tinta falhando",
+    "revestimento falho", "revestimento descascado", "revestimento desgastado",
+    "revestimento defeituoso", "revestimento oxidado", "revestimento poroso",
+    
+    # --- Combinações específicas ---
+    "pintura danificada", "pintura defeituosa", "pintura incompleta", "pintura mal aplicada",
+    "pintura queimada", "pintura com bolhas", "pintura com manchas",
+    "pintura com riscos", "pintura fosca", "pintura opaca",
+    "verniz queimado", "verniz rachado", "verniz descascado", "verniz descascando",
+    "verniz desbotado", "verniz com bolhas", "verniz com manchas",
+    "verniz com riscos", "verniz fosco", "verniz opaco",
+
+    # ------- OUTROS ------------
+
     "descascado", "descascada",
     "descascando", "descascante",
     "desbotado", "desbotada",
@@ -34,6 +70,7 @@ KEYWORDS = [
     "enrugado", "enrugada",
     "diferença de tonalidade", "tonalidade irregular",
     "diferença de cor", "cor irregular",
+    "acabamento irregular", "acabamento ruim",
     "pintura irregular", "verniz irregular",
     "mancha", "manchas",
     "peeling", "peelings",
@@ -62,6 +99,13 @@ KEYWORDS = [
     "pintura fosca", "verniz fosco",
     "pintura opaca", "verniz opaco"
 ]
+
+
+# Cria um padrão regex combinando base + defeito (ex: "pintura descascada", "verniz oxidado", etc.)
+PATTERN = re.compile(
+    r"\b(?:" + "|".join(BASE_TERMS) + r")\b.{0,100}\b(?:" + "|".join(DEFECT_TERMS) + r")\b",
+    re.IGNORECASE
+)
 
 # --- Parâmetros e conexão com S3 ---
 if len(sys.argv) < 4:
@@ -99,14 +143,14 @@ for obj in response['Contents']:
     df = df.dropna()
     df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
 
-    # --- Filtro por palavras-chave (somente se existir 'description') ---
+    # --- Filtro aprimorado por contexto ---
     if 'description' in df.columns:
-        print("Filtrando linhas com palavras-chave relacionadas a pintura/verniz...")
-        mask = df['description'].str.lower().apply(
-            lambda x: any(keyword in x for keyword in KEYWORDS)
-        )
-        df = df[mask]
-        print(f"Após o filtro, restaram {len(df)} linhas.")
+        print("Filtrando linhas com defeitos relacionados a pintura, verniz ou revestimento...")
+        df['description_lower'] = df['description'].str.lower()
+
+        mask = df['description_lower'].apply(lambda x: bool(PATTERN.search(x)))
+        df = df[mask].drop(columns=['description_lower'])
+        print(f"Após o filtro contextual, restaram {len(df)} linhas.")
     else:
         print("Coluna 'description' não encontrada. Nenhum filtro aplicado.")
 
