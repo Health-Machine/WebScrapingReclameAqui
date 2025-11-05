@@ -2,7 +2,7 @@ import scraping  # o módulo que você já tem
 import pandas as pd
 
 def main():
-    company_id = scraping.get_company_id("chevrolet")
+    company_id = scraping.get_company_id("volkswagen")
     reclamacoes, _ = scraping.get_all_data(company_id)
 
     dados = []
