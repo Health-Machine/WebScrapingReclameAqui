@@ -3,7 +3,6 @@ import io
 import boto3
 import pandas as pd
 import re
-import chardet
 
 # --- Palavras-chave do filtro (mais restrito e contextual) ---
 BASE_TERMS = [
@@ -38,10 +37,71 @@ DEFECT_TERMS = [
     "pintura com riscos", "pintura fosca", "pintura opaca",
     "verniz queimado", "verniz rachado", "verniz descascado", "verniz descascando",
     "verniz desbotado", "verniz com bolhas", "verniz com manchas",
-    "verniz com riscos", "verniz fosco", "verniz opaco"
+    "verniz com riscos", "verniz fosco", "verniz opaco",
+
+    # ------- OUTROS ------------
+
+    "descascado", "descascada",
+    "descascando", "descascante",
+    "desbotado", "desbotada",
+    "desgastado", "desgastada",
+    "manchado", "manchada",
+    "arranhado", "arranhada",
+    "riscado", "riscada",
+    "arranhadura", "arranhaduras",
+    "riscos", "arranhões",
+    "poroso", "porosa",
+    "fosco", "fosca",
+    "opaco", "opaca",
+    "craquelado", "craquelada",
+    "rachado", "rachada",
+    "trincado", "trincada",
+    "soltando tinta", "soltando verniz",
+    "falha de pintura", "falhas de pintura",
+    "imperfeito", "imperfeita",
+    "imperfeição", "imperfeições",
+    "bolha", "bolhas",
+    "bolhoso", "bolhosa",
+    "descamando", "descamado", "descamada",
+    "soltando camadas", "descolado", "descolada",
+    "oxidação", "oxidado", "oxidada",
+    "ferrugem na pintura", "ferrugem no verniz",
+    "descoloração", "descolorido", "descolorida",
+    "enrugado", "enrugada",
+    "diferença de tonalidade", "tonalidade irregular",
+    "diferença de cor", "cor irregular",
+    "acabamento irregular", "acabamento ruim",
+    "pintura irregular", "verniz irregular",
+    "mancha", "manchas",
+    "peeling", "peelings",
+    "craquelamento", "craquelamentos",
+    "tinta falhada", "tinta falhando",
+    "camada fina", "camada grossa",
+    "pintura falha", "pintura falhada",
+    "microbolhas", "microfissuras",
+    "pintura soltando", "verniz soltando",
+    "verniz rachado", "verniz rachada",
+    "verniz desbotado", "verniz desbotada",
+    "verniz descascando", "verniz descascado",
+    "pintura danificada", "pintura defeituosa",
+    "verniz danificado", "verniz defeituoso",
+    "pintura incompleta", "pintura mal aplicada",
+    "tinta irregular", "tinta manchada",
+    "revestimento falho", "revestimento descascado",
+    "revestimento desgastado", "revestimento defeituoso",
+    "revestimento oxidado", "revestimento poroso",
+    "falta de brilho", "sem brilho",
+    "perda de brilho", "pintura sem brilho",
+    "pintura queimada", "verniz queimado",
+    "pintura com bolhas", "verniz com bolhas",
+    "pintura com manchas", "verniz com manchas",
+    "pintura com riscos", "verniz com riscos",
+    "pintura fosca", "verniz fosco",
+    "pintura opaca", "verniz opaco"
 ]
 
-# Cria um padrão regex combinando base + defeito
+
+# Cria um padrão regex combinando base + defeito (ex: "pintura descascada", "verniz oxidado", etc.)
 PATTERN = re.compile(
     r"\b(?:" + "|".join(BASE_TERMS) + r")\b.{0,100}\b(?:" + "|".join(DEFECT_TERMS) + r")\b",
     re.IGNORECASE
@@ -73,36 +133,20 @@ for obj in response['Contents']:
 
     print(f"\n📥 Lendo arquivo: s3://{raw_bucket}/{key}")
     raw_obj = s3.get_object(Bucket=raw_bucket, Key=key)
-    raw_bytes = raw_obj['Body'].read()
+    body = raw_obj['Body'].read().decode('utf-8-sig')
 
-    # Detecta a codificação automaticamente
-    detected = chardet.detect(raw_bytes)
-    encoding = detected.get('encoding') or 'utf-8'
-    print(f"🔍 Codificação detectada: {encoding}")
-
-    try:
-        body = raw_bytes.decode(encoding)
-    except UnicodeDecodeError:
-        print("⚠️ Falha ao decodificar com a codificação detectada. Tentando fallback latin1...")
-        body = raw_bytes.decode('latin1', errors='replace')
-
-    # --- Lê CSV em DataFrame ---
-    try:
-        df = pd.read_csv(io.StringIO(body))
-    except Exception as e:
-        print(f"❌ Erro ao ler CSV {key}: {e}")
-        continue
-
+    # Lê CSV em DataFrame
+    df = pd.read_csv(io.StringIO(body))
     print(f"Arquivo carregado com {len(df)} linhas e {len(df.columns)} colunas.")
 
     # --- Limpeza básica ---
     df = df.dropna()
     df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
 
-    # --- Filtro contextual ---
+    # --- Filtro aprimorado por contexto ---
     if 'description' in df.columns:
         print("Filtrando linhas com defeitos relacionados a pintura, verniz ou revestimento...")
-        df['description_lower'] = df['description'].astype(str).str.lower()
+        df['description_lower'] = df['description'].str.lower()
 
         mask = df['description_lower'].apply(lambda x: bool(PATTERN.search(x)))
         df = df[mask].drop(columns=['description_lower'])
